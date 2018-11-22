@@ -11,10 +11,14 @@
 #
 # Ansible or Terraform would be a better tool. This is just for learning.
 
+get-vpcid() {
+	VPCID=`aws ec2 describe-vpcs --output text --query 'Vpcs[?Tags[?Key==\`example\` && Value==\`sn1\`]].VpcId'`
+	echo "$VPCID"
+}
 
 create-vpc() {
 	# Check if Vpc exists
-	VPCID=`aws ec2 describe-vpcs --output text --query 'Vpcs[?Tags[?Key==\`example\` && Value==\`sn1\`]].VpcId'`
+	VPCID=$(get-vpcid)
 	if [ $? -gt 0 ] ; then
 		echo "describe-vpcs command error" >&2
 		exit 1
@@ -33,7 +37,7 @@ create-vpc() {
 
 delete-vpc() {
 	# Now tear down the VPC.
-	VPCID=`aws ec2 describe-vpcs --output text --query 'Vpcs[?Tags[?Key==\`example\` && Value==\`sn1\`]].VpcId'`
+	VPCID=$(get-vpcid)
 	if [ $? -gt 0 ] ; then
 		echo "describe-vpcs command error" >&2
 		exit 1
@@ -46,7 +50,7 @@ delete-vpc() {
 	fi
 
 	# check if deleted
-	VPCID=`aws ec2 describe-vpcs --output text --query 'Vpcs[?Tags[?Key==\`example\` && Value==\`sn1\`]].VpcId'`
+	VPCID=$(get-vpcid)
 	echo "VpcId=$VPCID."
 	#aws ec2 describe-vpcs
 }
