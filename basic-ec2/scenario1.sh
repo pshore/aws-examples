@@ -13,7 +13,6 @@
 
 
 create-vpc() {
-	echo Create
 	# Check if Vpc exists
 	VPCID=`aws ec2 describe-vpcs --output text --query 'Vpcs[?Tags[?Key==\`example\` && Value==\`sn1\`]].VpcId'`
 	if [ $? -gt 0 ] ; then
@@ -33,7 +32,6 @@ create-vpc() {
 
 
 delete-vpc() {
-	echo Destroy
 	# Now tear down the VPC.
 	VPCID=`aws ec2 describe-vpcs --output text --query 'Vpcs[?Tags[?Key==\`example\` && Value==\`sn1\`]].VpcId'`
 	if [ $? -gt 0 ] ; then
