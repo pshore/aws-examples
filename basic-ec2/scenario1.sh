@@ -11,6 +11,9 @@
 #
 # Ansible or Terraform would be a better tool. This is just for learning.
 
+################################################################################
+# Vpc functions
+
 get-vpcid() {
 	VPCID=`aws ec2 describe-vpcs --output text --query 'Vpcs[?Tags[?Key==\`example\` && Value==\`sn1\`]].VpcId'`
 	echo "$VPCID"
@@ -18,11 +21,7 @@ get-vpcid() {
 
 create-vpc() {
 	# Check if Vpc exists
-	VPCID=$(get-vpcid)
-	if [ $? -gt 0 ] ; then
-		echo "describe-vpcs command error" >&2
-		exit 1
-	fi
+	VPCID=$(get-vpcid)	
 	if [ -z "$VPCID" ] ; then
 		echo "Creating VPC"
 		# if vpc does not exist, create it
@@ -30,7 +29,7 @@ create-vpc() {
 		VPCID=`aws ec2 create-vpc --cidr-block 10.0.0.0/16 --output text --query 'Vpc.VpcId'`
 		aws ec2 create-tags --resources $VPCID --tags Key=example,Value=sn1		
 	fi
-	echo "VpcId=$VPCID."
+	echo "VpcId=$VPCID"
 	#aws ec2 describe-vpcs
 }
 
@@ -38,10 +37,6 @@ create-vpc() {
 delete-vpc() {
 	# Now tear down the VPC.
 	VPCID=$(get-vpcid)
-	if [ $? -gt 0 ] ; then
-		echo "describe-vpcs command error" >&2
-		exit 1
-	fi
 
 	# VpcId found, now delete it
 	if [ -n "$VPCID" ] ; then
@@ -55,14 +50,64 @@ delete-vpc() {
 	#aws ec2 describe-vpcs
 }
 
+################################################################################
+# Security Group functions
+
+get-sgid() {
+	SGID=`aws ec2 describe-security-groups --output text --query 'SecurityGroups[?Tags[?Key==\`example\` && Value==\`sn1\`]].GroupId'`
+	echo "$SGID"
+}
+
+create-sg() {
+	# Get VpcId. It is a required dependency.
+	VPCID=$(get-vpcid)
+	
+	# Check if security group exists
+	SGID=$(get-sgid)
+	if [ -z "$SGID" ] ; then
+		echo "Creating Security Group"
+		# if security-group does not exist, create it
+		SGID=`aws ec2 create-security-group \
+			--group-name ExampleSn1SG --description ExampleSn1SG \
+			--vpc-id "$VPCID" \
+			--output text --query 'GroupId'`
+		aws ec2 create-tags --resources $SGID --tags Key=example,Value=sn1		
+	fi
+	echo "GroupId=$SGID"
+	#aws ec2 describe-vpcs
+}
+
+
+delete-sg() {
+	# Now tear down the security group.
+	SGID=$(get-sgid)
+
+	# If found, now delete it
+	if [ -n "$SGID" ] ; then
+		echo "Deleting security group"
+		aws ec2 delete-security-group --group-id $SGID
+	fi
+
+	# check if deleted
+	SGID=$(get-sgid)
+	echo "GroupId=$SGID"
+	#aws ec2 describe-security-groups
+}
+
 
 #
 # Start point
 #
 case "$1" in
+	gv) get-vpcid ;;
 	cv) create-vpc ;;
 	dv) delete-vpc ;;
+	gs) get-sgid ;;		
+	cs) create-sg ;;
+	ds) delete-sg ;;		
 	*)
-		echo "Usage: $0 {create-vpc|delete-vpc}"
+		echo "Usage: $0 {gv|cv|dv|gs|cs|ds}"
+		echo " g=get, c=create, d=delete"
+		echo " v=vpc, g=security-group"
 		exit 1
 esac
