@@ -143,6 +143,58 @@ delete-rules() {
 	fi			
 }
 
+################################################################################
+# EC2 Instance functions
+
+#SGNAME="ExampleSn1SG"  # global variable for the security group
+
+get-ami-id() {
+	# Get the id of the preferred Amazon Machine Instance type.
+
+	# The first AMI instance listed.  Free tier eligible.
+	#	Amazon Linux 2 AMI (HVM), SSD Volume Type - ami-09693313102a30b2c
+	#	Amazon Linux 2 comes with five years support. It provides Linux kernel 4.14 tuned for optimal performance on Amazon EC2, systemd 219, GCC 7.3, Glibc 2.26, Binutils 2.29.1, and the latest software packages through extras.
+	
+	# choose t2.micro for the free tier eligible type.
+	
+	echo "ami-09693313102a30b2c"
+}
+
+KEYPAIRNAME="ExampleKP"  # global variable for the key-pair name
+
+get-key-pair-fingerprint() {
+	KPFP=`aws ec2 describe-key-pairs --output text --query 'KeyPairs[?KeyName==\`ExampleKP\`].KeyFingerprint'`
+	echo "$KPFP"
+}
+
+create-key-pair() {
+	# create a keypair 
+	if [ ! -f ~/.ssh/${KEYPAIRNAME}_id_rsa ] ; then
+		# genereate an RSA keypair with no passphrase.
+		ssh-keygen -q -t rsa -N "" -f ~/.ssh/${KEYPAIRNAME}_id_rsa	
+	fi
+
+	KPFP=$(get-key-pair-fingerprint)
+	if [ -z "$KPFP"  ] ; then
+		echo "Importing local public key to EC2."
+		aws ec2 import-key-pair --key-name ${KEYPAIRNAME} \
+			--public-key-material file://~/.ssh/${KEYPAIRNAME}_id_rsa.pub
+	fi
+}
+
+delete-key-pair() {
+	aws ec2 delete-key-pair --key-name ${KEYPAIRNAME}	
+	
+	# could delete the local private key here.
+	echo "To permanently delete the private key, run: \n\t rm -f ~/.ssh/${KEYPAIRNAME}_id_rsa.*"
+}
+
+get-sgid() {
+	SGID=`aws ec2 describe-security-groups --output text --query 'SecurityGroups[?Tags[?Key==\`example\` && Value==\`sn1\`]].GroupId'`
+	echo "$SGID"
+}
+
+
 
 
 ################################################################################
@@ -157,9 +209,12 @@ case "$1" in
 	ds) delete-sg ;;
 	cr) create-rules ;;
 	dr) delete-rules ;;
+	gk) get-key-pair-fingerprint ;;
+	ck) create-key-pair ;;
+	dk) delete-key-pair ;;
 	*)
-		echo "Usage: $0 {gv|cv|dv|gs|cs|ds|cr|dr}"
+		echo "Usage: $0 {gv|cv|dv|gs|cs|ds|cr|dr|gk|ck|dk}"
 		echo " g=get, c=create, d=delete"
-		echo " v=vpc, g=security-group, r=rules" 
+		echo " v=vpc, g=security-group, r=rules, k=key-pair" 
 		exit 1
 esac
