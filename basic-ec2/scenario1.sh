@@ -143,22 +143,9 @@ delete-rules() {
 	fi			
 }
 
-################################################################################
-# EC2 Instance functions
-
-#SGNAME="ExampleSn1SG"  # global variable for the security group
-
-get-ami-id() {
-	# Get the id of the preferred Amazon Machine Instance type.
-
-	# The first AMI instance listed.  Free tier eligible.
-	#	Amazon Linux 2 AMI (HVM), SSD Volume Type - ami-09693313102a30b2c
-	#	Amazon Linux 2 comes with five years support. It provides Linux kernel 4.14 tuned for optimal performance on Amazon EC2, systemd 219, GCC 7.3, Glibc 2.26, Binutils 2.29.1, and the latest software packages through extras.
-	
-	# choose t2.micro for the free tier eligible type.
-	
-	echo "ami-09693313102a30b2c"
-}
+#
+# Key Pair functions
+#
 
 KEYPAIRNAME="ExampleKP"  # global variable for the key-pair name
 
@@ -189,12 +176,26 @@ delete-key-pair() {
 	echo "To permanently delete the private key, run: \n\t rm -f ~/.ssh/${KEYPAIRNAME}_id_rsa.*"
 }
 
-get-sgid() {
-	SGID=`aws ec2 describe-security-groups --output text --query 'SecurityGroups[?Tags[?Key==\`example\` && Value==\`sn1\`]].GroupId'`
-	echo "$SGID"
+################################################################################
+# EC2 Instance functions
+
+#SGNAME="ExampleSn1SG"  # global variable for the security group
+
+get-ami-id() {
+	# Get the id of the preferred Amazon Machine Instance type.
+
+	# The first AMI instance listed.  Free tier eligible.
+	#	Amazon Linux 2 AMI (HVM), SSD Volume Type - ami-09693313102a30b2c
+	#	Amazon Linux 2 comes with five years support. It provides Linux kernel 4.14 tuned for optimal performance on Amazon EC2, systemd 219, GCC 7.3, Glibc 2.26, Binutils 2.29.1, and the latest software packages through extras.
+	
+	# choose t2.micro for the free tier eligible type.
+	
+	echo "ami-09693313102a30b2c"
 }
 
-
+get-ami-type() {
+	echo "t2.micro"
+}
 
 
 ################################################################################
