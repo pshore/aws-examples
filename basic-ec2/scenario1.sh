@@ -53,6 +53,8 @@ delete-vpc() {
 ################################################################################
 # Security Group functions
 
+SGNAME="ExampleSn1SG"  # global variable for the security group
+
 get-sgid() {
 	SGID=`aws ec2 describe-security-groups --output text --query 'SecurityGroups[?Tags[?Key==\`example\` && Value==\`sn1\`]].GroupId'`
 	echo "$SGID"
@@ -68,7 +70,7 @@ create-sg() {
 		echo "Creating Security Group"
 		# if security-group does not exist, create it
 		SGID=`aws ec2 create-security-group \
-			--group-name ExampleSn1SG --description ExampleSn1SG \
+			--group-name "$SGNAME" --description "$SGNAME" \
 			--vpc-id "$VPCID" \
 			--output text --query 'GroupId'`
 		aws ec2 create-tags --resources $SGID --tags Key=example,Value=sn1		
@@ -94,8 +96,56 @@ delete-sg() {
 	#aws ec2 describe-security-groups
 }
 
-
 #
+# Security Group Rules
+#
+
+get-public-ip() {
+	echo "$PUBLICIP"
+}
+
+create-rules() {
+	# allow ssh from our current public IP into the security group instances
+		
+	SGID=$(get-sgid)
+	PUBLICIPv4=$(get-public-ip)
+
+	# if security group exists, create the rules
+	if [ -z "$SGID"  ] ; then
+		echo "Creating Rules"
+		
+		SSHPORT=22
+		
+		aws ec2 authorize-security-group-ingress \
+			--group-id=$SGID \
+			--ip-permissions \
+			  IpProtocol=tcp,IpRanges=[{CidrIp=${PUBLICIPv4}/32}],FromPort=$SSHPORT,ToPort=$SSHPORT
+			  # note FromPort & ToPort together specify the port range to open up. 
+	fi		
+}
+
+delete-rules() {		
+	# Remove existing security group rules.
+
+	SGID=$(get-sgid)
+	PUBLICIPv4=$(get-public-ip)	
+	
+	# if security group exists, create the rules
+	if [ -z "$SGID"  ] ; then
+		echo "Deleting Rules"
+		
+		SSHPORT=22
+
+		aws ec2 revoke-security-group-ingress \
+			--group-id=$SGID \
+			--ip-permissions \
+			  IpProtocol=tcp,IpRanges=[{CidrIp=${PUBLICIPv4}/32}],FromPort=$SSHPORT,ToPort=$SSHPORT
+	fi			
+}
+
+
+
+################################################################################
 # Start point
 #
 case "$1" in
@@ -104,10 +154,12 @@ case "$1" in
 	dv) delete-vpc ;;
 	gs) get-sgid ;;		
 	cs) create-sg ;;
-	ds) delete-sg ;;		
+	ds) delete-sg ;;
+	cr) create-rules ;;
+	dr) delete-rules ;;
 	*)
-		echo "Usage: $0 {gv|cv|dv|gs|cs|ds}"
+		echo "Usage: $0 {gv|cv|dv|gs|cs|ds|cr|dr}"
 		echo " g=get, c=create, d=delete"
-		echo " v=vpc, g=security-group"
+		echo " v=vpc, g=security-group, r=rules" 
 		exit 1
 esac
