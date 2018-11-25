@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # 
-# This example replicates Scenario 1, VPC with single subnet.
+# This example replicates Scenario 1 using the AWS command line client.
+# A VPC with single subnet and one EC2 instance is created.
 # awsclient commands are used.
 #
 # https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Scenario1.html
@@ -179,23 +180,67 @@ delete-key-pair() {
 ################################################################################
 # EC2 Instance functions
 
-#SGNAME="ExampleSn1SG"  # global variable for the security group
-
-get-ami-id() {
-	# Get the id of the preferred Amazon Machine Instance type.
-
-	# The first AMI instance listed.  Free tier eligible.
-	#	Amazon Linux 2 AMI (HVM), SSD Volume Type - ami-09693313102a30b2c
-	#	Amazon Linux 2 comes with five years support. It provides Linux kernel 4.14 tuned for optimal performance on Amazon EC2, systemd 219, GCC 7.3, Glibc 2.26, Binutils 2.29.1, and the latest software packages through extras.
+get-instanceid() {
+	#pending->running->terminated
 	
-	# choose t2.micro for the free tier eligible type.
-	
-	echo "ami-09693313102a30b2c"
+	# get the id of any pending or running instance. Assumes only one will ever be returned.
+	INID=`aws ec2 describe-instances --output text \
+	  --query 'Reservations[].Instances[?Tags[?Key==\`example\` && Value==\`sn1\`] && State.Name==\`running\` || State.Name==\`pending\`].InstanceId'`
+	echo "$INID"
 }
 
-get-ami-type() {
-	echo "t2.micro"
+get-instance-ip() {
+	INID=$(get-instanceid)
+	INIP=`aws ec2 describe-instances --instance-ids ${INID} --query 'Reservations[*].Instances[*].PublicIpAddress' --output text`
+	echo "$INIP"
 }
+
+get-instance-ssh() {
+	INIP=$(get-instance-ip)
+	echo "ssh -i ~/.ssh/${KEYPAIRNAME}_id_rsa ec2-user@${INIP}"
+}
+
+AMIID="ami-09693313102a30b2c" # Amazon Linux 2 AMI (HVM), SSD Volume Type
+AMITYPE="t2.micro" # global variable for free tier eligible type
+
+# Create and run an instance
+create-instance() {
+
+	SGID=$(get-sgid)
+	
+	INID=$(get-instanceid)
+	
+	if [ -z "$INID"  ] ; then
+		echo "Creating instance in ${SGID}."
+		
+		aws ec2 run-instances --image-id ${AMIID} --count 1 --instance-type ${AMITYPE} \
+			--key-name ${KEYPAIRNAME} \
+			--security-group-ids ${SGID} #\ 
+			#--tag-specifications "ResourceType=instance,Tags=[{Key=example,Value=sn1}]"			
+				
+		INID=$(get-instanceid)			
+		aws ec2 create-tags --resources $INID --tags Key=example,Value=sn1
+	fi
+
+	# SSH as follows:
+	# ssh -i ~/.ssh/ExampleKP_id_rsa ec2user@<public-ip>
+}
+
+delete-instance() {
+	INID=$(get-instanceid)
+
+	# VpcId found, now delete it
+	if [ -n "$INID" ] ; then
+		echo "Deleting instance ${INID}"
+		aws ec2 terminate-instances --instance-ids $INID
+	fi
+}
+
+# Refer to instance lifecycle
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
+
+# How to patch
+# https://aws.amazon.com/blogs/security/how-to-patch-linux-workloads-on-aws/
 
 
 ################################################################################
@@ -213,9 +258,14 @@ case "$1" in
 	gk) get-key-pair-fingerprint ;;
 	ck) create-key-pair ;;
 	dk) delete-key-pair ;;
+	gi) get-instanceid ;;
+	ci) create-instance ;;	
+	di) delete-instance ;;
+	ssh) get-instance-ssh ;;
 	*)
-		echo "Usage: $0 {gv|cv|dv|gs|cs|ds|cr|dr|gk|ck|dk}"
+		echo "Usage: $0 {gv|cv|dv|gs|cs|ds|cr|dr|gk|ck|dk|gi|ci|di|ssh}"
 		echo " g=get, c=create, d=delete"
-		echo " v=vpc, g=security-group, r=rules, k=key-pair" 
+		echo " v=vpc, g=security-group, r=rules, k=key-pair, i=instance" 
+		echo " ssh=show the ssh command required to connect"
 		exit 1
 esac
